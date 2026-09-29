@@ -1,6 +1,6 @@
 //! Backend-neutral presentation and searching of namespace entries.
 
-use crate::backend::Entry;
+use crate::backend::{Entry, Value};
 use std::collections::BTreeMap;
 
 fn segments(path: &str) -> Vec<&str> {
@@ -8,6 +8,22 @@ fn segments(path: &str) -> Vec<&str> {
         .split('.')
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+/// Strip trailing underscores from a single name segment (`_SB_` -> `_SB`), as most projects do
+/// when displaying ACPI names. A segment made only of underscores is left alone.
+pub fn display_segment(seg: &str) -> &str {
+    let trimmed = seg.trim_end_matches('_');
+    if trimmed.is_empty() { seg } else { trimmed }
+}
+
+/// Apply [`display_segment`] to every segment of a path such as `\_SB_.PCI0`. Anything that is
+/// not a segment (separators, `\`, `^` prefixes) is preserved.
+pub fn display_path(path: &str) -> String {
+    path.split('.')
+        .map(display_segment)
+        .collect::<Vec<_>>()
+        .join(".")
 }
 
 fn format_entry(name: &str, e: &Entry) -> String {
@@ -44,8 +60,8 @@ fn render_children(node: &Node, prefix: &str, out: &mut String) {
     for (i, (name, child)) in node.children.iter().enumerate() {
         let last = i + 1 == count;
         let line = match &child.entry {
-            Some(e) => format_entry(name, e),
-            None => name.clone(),
+            Some(e) => format_entry(display_segment(name), e),
+            None => display_segment(name).to_string(),
         };
         out.push_str(&format!(
             "{prefix}{}{line}\n",
@@ -90,8 +106,18 @@ pub fn find<'a>(entries: &'a [Entry], query: &str) -> Vec<&'a Entry> {
 pub fn render_found(found: &[&Entry]) -> String {
     found
         .iter()
-        .map(|e| format_entry(&e.path, e) + "\n")
+        .map(|e| format_entry(&display_path(&e.path), e) + "\n")
         .collect()
+}
+
+/// Describe the value returned by executing the method at `path`.
+pub fn render_result(path: &str, value: &Value) -> String {
+    let path = display_path(path);
+    if value.summary.is_empty() {
+        format!("{path} returned [{}]\n", value.type_name)
+    } else {
+        format!("{path} returned [{}] {}\n", value.type_name, value.summary)
+    }
 }
 
 #[cfg(test)]
@@ -120,15 +146,39 @@ mod tests {
     fn tree_shape() {
         let expected = [
             "\\",
-            "└── _SB_ [Scope]",
+            "└── _SB [Scope]",
             "    ├── DEV0 [Device]",
-            "    │   └── FOO_ [Integer] 0x2 (2)",
+            "    │   └── FOO [Integer] 0x2 (2)",
             "    └── PCI0 [Device]",
-            "        └── FOO_ [Integer] 0x1 (1)",
+            "        └── FOO [Integer] 0x1 (1)",
             "",
         ]
         .join("\n");
         assert_eq!(render_tree(&sample()), expected);
+    }
+
+    #[test]
+    fn strips_trailing_underscores_for_display() {
+        assert_eq!(display_segment("_SB_"), "_SB");
+        assert_eq!(display_segment("FOO_"), "FOO");
+        assert_eq!(display_segment("PCI0"), "PCI0");
+        assert_eq!(display_segment("____"), "____");
+        assert_eq!(display_path("\\_SB_.PCI0.FOO_"), "\\_SB.PCI0.FOO");
+        assert_eq!(display_path("\\"), "\\");
+    }
+
+    #[test]
+    fn found_entries_are_displayed_without_trailing_underscores() {
+        let entries = sample();
+        let found = find(&entries, "DEV0.FOO_");
+        assert_eq!(render_found(&found), "\\_SB.DEV0.FOO [Integer] 0x2 (2)\n");
+    }
+
+    #[test]
+    fn displayed_names_can_be_used_as_queries() {
+        let entries = sample();
+        assert_eq!(find(&entries, "\\_SB.PCI0.FOO").len(), 1);
+        assert_eq!(find(&entries, "FOO").len(), 2);
     }
 
     #[test]

@@ -1,13 +1,14 @@
 //! [`AmlBackend`] implemented on the `acpi` crate's AML interpreter.
 
-use super::{AmlBackend, Entry};
+use super::{AmlBackend, Entry, Value};
 use crate::tables::Table;
 use acpi::aml::{
-    Interpreter,
-    namespace::{Namespace, NamespaceLevelKind},
+    AmlError, Interpreter,
+    namespace::{AmlName, Namespace, NamespaceLevelKind},
     object::{FieldUnitKind, Object},
 };
 use aml_test_tools::{handlers::null_handler::NullHandler, new_interpreter};
+use std::str::FromStr;
 
 pub struct AcpiCrateBackend {
     interpreter: Interpreter<NullHandler>,
@@ -33,6 +34,23 @@ impl AmlBackend for AcpiCrateBackend {
         let mut namespace = self.interpreter.namespace.lock();
         collect(&mut namespace, &mut entries);
         entries
+    }
+
+    fn execute(&mut self, path: &str) -> Result<Value, String> {
+        let name = AmlName::from_str(path).map_err(|e| format!("invalid path: {e:?}"))?;
+        let result = self
+            .interpreter
+            .evaluate(name, vec![])
+            .map_err(|e| match e {
+                AmlError::MethodArgCountIncorrect => {
+                    "the method takes arguments, which are not supported yet".to_string()
+                }
+                other => format!("{other:?}"),
+            })?;
+        Ok(Value {
+            type_name: format!("{:?}", result.typ()),
+            summary: describe(&result),
+        })
     }
 }
 
@@ -128,7 +146,26 @@ fn summarise(object: &Object) -> String {
             format!("system level {system_level}, order {resource_order}")
         }
         Object::Mutex { sync_level, .. } => format!("sync level {sync_level}"),
-        Object::NamePath { name, .. } => name.as_string(),
+        Object::NamePath { name, .. } => crate::render::display_path(&name.as_string()),
         _ => String::new(),
+    }
+}
+
+/// Like [`summarise`], but also looks inside references and packages. Used for method results.
+fn describe(object: &Object) -> String {
+    match object {
+        Object::Reference { inner, .. } => describe(inner),
+        Object::Package(items) => {
+            let parts: Vec<String> = items
+                .iter()
+                .map(|item| {
+                    format!("{:?} {}", item.typ(), describe(item))
+                        .trim_end()
+                        .to_string()
+                })
+                .collect();
+            format!("{{ {} }}", parts.join(", "))
+        }
+        other => summarise(other),
     }
 }

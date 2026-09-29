@@ -16,10 +16,22 @@ pub struct Entry {
     pub summary: String,
 }
 
+/// The value produced by executing a method.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Value {
+    /// Type name, e.g. `Integer`, `String`, `Package`.
+    pub type_name: String,
+    /// A human-readable rendering of the value; may be empty.
+    pub summary: String,
+}
+
 pub trait AmlBackend {
     /// Load one AML table (DSDT/SSDT) into the namespace.
     fn load_table(&mut self, table: &Table) -> Result<(), String>;
 
     /// Every named object currently in the namespace, in no particular order.
     fn entries(&mut self) -> Vec<Entry>;
+
+    /// Execute the method at the absolute `path`, with no arguments, and return its result.
+    fn execute(&mut self, path: &str) -> Result<Value, String>;
 }

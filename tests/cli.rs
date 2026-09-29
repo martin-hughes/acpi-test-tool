@@ -1,8 +1,9 @@
 //! End-to-end tests: run the binary against a hand-assembled DSDT, driving the REPL via stdin.
 
-use std::io::Write;
+mod common;
+
+use common::{fixture, run, table};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 /// AML for:
 ///
@@ -17,64 +18,30 @@ const AML: &[u8] = &[
     0x08, b'B', b'A', b'R', b'_', 0x0D, b'h', b'i', 0x00, // Name (BAR_, "hi")
 ];
 
-fn table(signature: &[u8; 4], body: &[u8]) -> Vec<u8> {
-    let mut out = vec![0u8; 36];
-    out[0..4].copy_from_slice(signature);
-    out[4..8].copy_from_slice(&((36 + body.len()) as u32).to_le_bytes());
-    out[8] = 2;
-    out.extend_from_slice(body);
-    out
-}
-
-fn fixture(name: &str, bytes: &[u8]) -> PathBuf {
-    let path = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
-    std::fs::write(&path, bytes).unwrap();
-    path
-}
-
-/// Returns (stdout, stderr, success).
-fn run(file: &PathBuf, input: &str) -> (String, String, bool) {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_acpi-test"))
-        .arg(file)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(input.as_bytes())
-        .unwrap();
-    let out = child.wait_with_output().unwrap();
-    (
-        String::from_utf8_lossy(&out.stdout).into_owned(),
-        String::from_utf8_lossy(&out.stderr).into_owned(),
-        out.status.success(),
-    )
-}
-
 #[test]
 fn dump_and_find() {
     let file = fixture("simple.aml", &table(b"DSDT", AML));
     let (stdout, stderr, ok) = run(
         &file,
-        "dump\nfind FOO_\nfind \\_SB_.DEV0\nfind BAR_\nfind NOPE\nexit\n",
+        "dump\nfind FOO_\nfind \\_SB_.DEV0\nfind BAR_\nfind NOPE\nfind \\_SB.DEV0\nexit\n",
     );
     assert!(ok, "stderr: {stderr}");
     assert!(
-        stdout.contains("└── _SB_ [Scope]") || stdout.contains("├── _SB_ [Scope]"),
+        stdout.contains("└── _SB [Scope]") || stdout.contains("├── _SB [Scope]"),
         "{stdout}"
     );
     assert!(stdout.contains("DEV0 [Device]"), "{stdout}");
-    assert!(stdout.contains("FOO_ [Integer] 0x2a (42)"), "{stdout}");
+    assert!(stdout.contains("FOO [Integer] 0x2a (42)"), "{stdout}");
+    assert!(!stdout.contains("FOO_"), "{stdout}");
+    assert!(!stdout.contains("_SB_"), "{stdout}");
+    assert!(!stdout.contains("BAR_"), "{stdout}");
     assert!(
-        stdout.contains("\\_SB_.DEV0.FOO_ [Integer] 0x2a (42)"),
+        stdout.contains("\\_SB.DEV0.FOO [Integer] 0x2a (42)"),
         "{stdout}"
     );
-    assert!(stdout.contains("\\_SB_.DEV0 [Device]"), "{stdout}");
-    assert!(stdout.contains("\\BAR_ [String] \"hi\""), "{stdout}");
+    // Queried once with the padded name and once with the displayed name.
+    assert_eq!(stdout.matches("\\_SB.DEV0 [Device]").count(), 2, "{stdout}");
+    assert!(stdout.contains("\\BAR [String] \"hi\""), "{stdout}");
     assert!(stdout.contains("\"NOPE\" not found"), "{stdout}");
 }
 
@@ -86,7 +53,7 @@ fn multiple_tables_in_one_file() {
     let (stdout, stderr, ok) = run(&file, "find SSDT\nfind FOO_\nexit\n");
     assert!(ok, "stderr: {stderr}");
     assert!(stdout.contains("\\SSDT [Integer] 0x7 (7)"), "{stdout}");
-    assert!(stdout.contains("\\_SB_.DEV0.FOO_"), "{stdout}");
+    assert!(stdout.contains("\\_SB.DEV0.FOO"), "{stdout}");
 }
 
 #[test]

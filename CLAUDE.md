@@ -7,8 +7,9 @@ See `INTENT.md` for the plan, MVP definition and design decisions.
 
 ## Status
 
-The MVP is implemented: `acpi-test <file>` loads a table file and offers a REPL with `dump`, `find <name>`, `help` and
-`exit`. Future work (other interpreters, `execute`, `set`) is listed in `INTENT.md`.
+The MVP is implemented: `acpi-test <file>` loads a table file and offers a REPL with `dump`, `find <name>`,
+`execute <name>` (methods with no arguments only), `help` and `exit`. Future work (other interpreters, method arguments,
+`set`) is listed in `INTENT.md`.
 
 ## Tech Stack
 
@@ -25,7 +26,11 @@ The MVP is implemented: `acpi-test <file>` loads a table file and offers a REPL 
 * `src/backend/acpi_crate.rs` - `AcpiCrateBackend`, built on the `acpi` crate's interpreter.
 * `src/render.rs` - tree rendering and `find` matching over `Entry` lists.
 * `src/repl.rs` - command parsing/execution and the `rustyline` loop.
+* `tests/common/mod.rs` - shared test helpers, including `compile_asl` (copies to a temp dir and runs `iasl`).
+* `tests/execute.rs` - end-to-end tests of `execute`, using `tests/aml/methods.asl`.
 * `tests/cli.rs` - end-to-end tests using a hand-assembled DSDT, driving the binary over stdin.
+* `tests/aml/` - ASL sources used by tests (e.g. `methods.asl`). `iasl` is assumed to be on the path. Tests must copy
+  an ASL file to a temporary directory and compile it there, so no compiler output lands in the crate's directories.
 
 ## Commands
 

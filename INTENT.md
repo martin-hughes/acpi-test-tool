@@ -15,6 +15,7 @@ A tool that:
 * Allows the user to enter commands:
   * `dump` will dump a tree view of the namespace
   * `find [name]` will search the namespace for `[name]`, and dump the object found, and its type.
+  * `execute [name]` runs a method that takes no arguments and displays its result (added after the initial MVP).
   * `exit` to quit.
 
 ### The TUI
@@ -57,6 +58,6 @@ The only restrictions on dependencies are:
   * The `acpi` crate as in the MVP
   * `uACPI`
   * `ACPICA`
-* an `execute [name]` command to allow running an AML method
+* Allow `execute` to pass arguments to methods
 * Some sort of "set" command allowing values in the namespace to be altered before running a method.
 * Other commands to manipulate the namespace
