@@ -1,0 +1,11 @@
+[package]
+name = "acpi-test"
+version = "0.0.1"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dependencies]
+acpi = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
+aml-test-tools = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
+rustyline = "18"
