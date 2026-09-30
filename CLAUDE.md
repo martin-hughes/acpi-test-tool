@@ -58,6 +58,25 @@ Most end-to-end tests run once per interpreter (`backends()`) and expect identic
 interpreters legitimately differ (uACPI and ACPICA can't show a mutex's sync level, or field and region details), the
 tests avoid depending on that detail.
 
+Test fixtures to know about:
+
+* For "bad AML" use the table body `5B FF` (an extended-opcode prefix with an opcode that doesn't exist): all three
+  interpreters reject it. Truncated or garbage bodies are handled inconsistently. ACPICA silently accepts garbage at
+  the end of a table, and the `acpi` crate panics (an upstream bug) on a table truncated inside a `Device`.
+* Avoid ASL method names that are ASL keywords (`ARG1` is `Arg1`, for example).
+* Method arguments are integers and ASCII strings only. Strings can't contain NUL, because AML strings can't.
+
+## Conventions
+
+* Run `cargo fmt` after every round of edits, and keep `cargo clippy --workspace --all-targets` clean.
+* After changing anything feature-gated (the backends, `firmware.rs`, `hostsim.rs`, the `-sys` crates), run the tests
+  for each combination: the defaults, `--no-default-features`, and `--no-default-features --features uacpi` and
+  `... --features acpica`.
+* The C interpreters are only tested on Windows with MSVC x64. The settings for other platforms in
+  `acpica-sys/build.rs` and `uacpi-sys/build.rs` are unverified.
+* Submodules (`ext-libs/uACPI`, `ext-libs/acpica`) must be initialised (`git submodule update --init`) before the C
+  interpreters will build.
+
 ## Commands
 
 * `cargo build`, `cargo test`, `cargo clippy --workspace --all-targets`, `cargo fmt`
