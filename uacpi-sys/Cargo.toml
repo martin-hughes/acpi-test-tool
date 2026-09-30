@@ -8,5 +8,5 @@ description = "Raw FFI bindings to uACPI, built from the ext-libs/uACPI submodul
 links = "uacpi"
 
 [build-dependencies]
-bindgen = "0.72"
+bindgen = "0.73"
 cc = "1"
