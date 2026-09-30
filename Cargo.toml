@@ -6,15 +6,18 @@ publish = false
 license = "MIT"
 
 [workspace]
-members = ["uacpi-sys"]
+members = ["uacpi-sys", "acpica-sys"]
 
 [features]
-default = ["uacpi"]
+default = ["uacpi", "acpica"]
 # Support for the uACPI interpreter (`--uacpi`). Needs a C compiler and libclang to build.
 uacpi = ["dep:uacpi-sys"]
+# Support for the ACPICA interpreter (`--acpica`). Needs a C compiler and libclang to build.
+acpica = ["dep:acpica-sys"]
 
 [dependencies]
 uacpi-sys = { path = "uacpi-sys", optional = true }
+acpica-sys = { path = "acpica-sys", optional = true }
 acpi = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
 aml-test-tools = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
 rustyline = "18"

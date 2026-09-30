@@ -22,9 +22,18 @@ name = "acpi-test"
 version = "0.0.1"
 dependencies = [
  "acpi",
+ "acpica-sys",
  "aml-test-tools",
  "rustyline",
  "uacpi-sys",
+]
+
+[[package]]
+name = "acpica-sys"
+version = "0.0.1"
+dependencies = [
+ "bindgen",
+ "cc",
 ]
 
 [[package]]

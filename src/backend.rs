@@ -1,7 +1,10 @@
-//! The interface between the REPL and an AML interpreter. Future interpreters (uACPI, ACPICA)
-//! implement [`AmlBackend`]; the rest of the tool only sees backend-neutral [`Entry`] values.
+//! The interface between the REPL and an AML interpreter. Each interpreter (the `acpi` crate,
+//! uACPI and ACPICA) implements [`AmlBackend`]; the rest of the tool only sees backend-neutral
+//! [`Entry`] and [`Value`] values.
 
 pub mod acpi_crate;
+#[cfg(feature = "acpica")]
+pub mod acpica;
 #[cfg(feature = "uacpi")]
 pub mod uacpi;
 

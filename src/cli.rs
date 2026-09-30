@@ -7,6 +7,8 @@ pub enum Interpreter {
     Acpi,
     /// uACPI.
     Uacpi,
+    /// ACPICA.
+    Acpica,
 }
 
 impl Interpreter {
@@ -15,6 +17,7 @@ impl Interpreter {
         match self {
             Interpreter::Acpi => "acpi> ",
             Interpreter::Uacpi => "uacpi> ",
+            Interpreter::Acpica => "acpica> ",
         }
     }
 }
@@ -32,10 +35,11 @@ pub enum Parsed {
 }
 
 pub const USAGE: &str = "\
-usage: acpi-test [--acpi | --uacpi] <file.aml>
+usage: acpi-test [--acpi | --uacpi | --acpica] <file.aml>
 
   --acpi    use the `acpi` crate's AML interpreter (default)
   --uacpi   use the uACPI AML interpreter
+  --acpica  use the ACPICA AML interpreter
   -h, --help  show this text
 ";
 
@@ -48,13 +52,14 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Parsed, String> 
             "-h" | "--help" => return Ok(Parsed::Help),
             "--acpi" => Some(Interpreter::Acpi),
             "--uacpi" => Some(Interpreter::Uacpi),
+            "--acpica" => Some(Interpreter::Acpica),
             flag if flag.starts_with("--") => return Err(format!("unknown option \"{flag}\"")),
             _ => None,
         };
         match choice {
             Some(chosen) => match interpreter {
                 Some(previous) if previous != chosen => {
-                    return Err("--acpi and --uacpi cannot be used together".into());
+                    return Err("only one of --acpi, --uacpi and --acpica may be given".into());
                 }
                 _ => interpreter = Some(chosen),
             },
@@ -106,6 +111,10 @@ mod tests {
             parse_strs(&["a.aml", "--uacpi"]),
             run(Interpreter::Uacpi, "a.aml")
         );
+        assert_eq!(
+            parse_strs(&["--acpica", "a.aml"]),
+            run(Interpreter::Acpica, "a.aml")
+        );
     }
 
     #[test]
@@ -115,6 +124,8 @@ mod tests {
             run(Interpreter::Uacpi, "a.aml")
         );
         assert!(parse_strs(&["--acpi", "--uacpi", "a.aml"]).is_err());
+        assert!(parse_strs(&["--uacpi", "--acpica", "a.aml"]).is_err());
+        assert!(parse_strs(&["--acpica", "--acpi", "a.aml"]).is_err());
     }
 
     #[test]
@@ -129,6 +140,7 @@ mod tests {
     fn the_prompt_names_the_interpreter() {
         assert_eq!(Interpreter::Acpi.prompt(), "acpi> ");
         assert_eq!(Interpreter::Uacpi.prompt(), "uacpi> ");
+        assert_eq!(Interpreter::Acpica.prompt(), "acpica> ");
     }
 
     #[test]

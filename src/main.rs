@@ -1,5 +1,7 @@
 mod backend;
 mod cli;
+mod firmware;
+mod hostsim;
 mod render;
 mod repl;
 mod tables;
@@ -39,6 +41,12 @@ fn make_backend(interpreter: Interpreter) -> Result<Box<dyn AmlBackend>, String>
         #[cfg(not(feature = "uacpi"))]
         Interpreter::Uacpi => {
             Err("uACPI support was not compiled in; rebuild with the `uacpi` feature".into())
+        }
+        #[cfg(feature = "acpica")]
+        Interpreter::Acpica => Ok(Box::new(backend::acpica::AcpicaBackend::new())),
+        #[cfg(not(feature = "acpica"))]
+        Interpreter::Acpica => {
+            Err("ACPICA support was not compiled in; rebuild with the `acpica` feature".into())
         }
     }
 }

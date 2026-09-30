@@ -1,3 +1,6 @@
 [submodule "ext-libs/uACPI"]
 	path = ext-libs/uACPI
 	url = git@github.com:uACPI/uACPI.git
+[submodule "ext-libs/acpica"]
+	path = ext-libs/acpica
+	url = git@github.com:open-acpica/acpica.git

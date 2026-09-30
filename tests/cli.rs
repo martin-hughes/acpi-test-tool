@@ -94,9 +94,9 @@ fn a_file_with_only_an_ssdt_loads() {
 }
 
 #[test]
-fn a_second_dsdt_is_ignored_by_uacpi_and_loaded_by_acpi() {
-    // The `acpi` crate simply runs every table it is given. uACPI needs a single DSDT, so it
-    // reports the extra one.
+fn a_second_dsdt_is_ignored_by_the_c_interpreters_and_loaded_by_acpi() {
+    // The `acpi` crate simply runs every table it is given. uACPI and ACPICA need a single DSDT,
+    // so they report the extra one.
     let mut image = table(b"DSDT", AML);
     image.extend(table(b"DSDT", SSDT_AML));
     let file = fixture("two-dsdts.aml", &image);
@@ -105,22 +105,19 @@ fn a_second_dsdt_is_ignored_by_uacpi_and_loaded_by_acpi() {
     assert!(ok, "stderr: {stderr}");
     assert!(stdout.contains("\\SSDT [Integer]"), "{stdout}");
 
-    if cfg!(feature = "uacpi") {
-        let (stdout, stderr, ok) = run_with(&["--uacpi"], &file, "find SSDT\nexit\n");
-        assert!(ok, "stderr: {stderr}");
-        assert!(stderr.contains("extra DSDT"), "{stderr}");
-        assert!(stdout.contains("\"SSDT\" not found"), "{stdout}");
+    for backend in backends().into_iter().filter(|b| *b != "--acpi") {
+        let (stdout, stderr, ok) = run_with(&[backend], &file, "find SSDT\nexit\n");
+        assert!(ok, "{backend}: stderr: {stderr}");
+        assert!(stderr.contains("extra DSDT"), "{backend}: {stderr}");
+        assert!(stdout.contains("\"SSDT\" not found"), "{backend}: {stdout}");
     }
 }
 
 #[test]
 fn bad_aml_is_reported_but_the_namespace_is_still_usable() {
     for backend in backends() {
-        // A NameOp followed by garbage where its name should be.
-        let file = fixture(
-            "bad-aml.aml",
-            &table(b"DSDT", &[0xFF, 0xFF, 0xFF, 0xFF, 0x08]),
-        );
+        // An extended opcode prefix followed by an opcode that doesn't exist.
+        let file = fixture("bad-aml.aml", &table(b"DSDT", &[0x5B, 0xFF]));
         let (stdout, stderr, ok) = run_with(&[backend], &file, "find _OSI\nexit\n");
         assert!(ok, "{backend}: stderr: {stderr}");
         assert!(
@@ -187,11 +184,31 @@ fn uacpi_is_refused_when_not_compiled_in() {
 }
 
 #[test]
+#[cfg(feature = "acpica")]
+fn acpica_can_be_selected() {
+    let file = fixture("choose-acpica.aml", &table(b"DSDT", AML));
+    let (stdout, stderr, ok) = run_with(&["--acpica"], &file, "find _GL\nexit\n");
+    assert!(ok, "stderr: {stderr}");
+    assert!(stderr.is_empty(), "{stderr}");
+    assert!(stdout.contains("\\_GL [Mutex]"), "{stdout}");
+    assert!(!stdout.contains("sync level"), "{stdout}");
+}
+
+#[test]
+#[cfg(not(feature = "acpica"))]
+fn acpica_is_refused_when_not_compiled_in() {
+    let file = fixture("no-acpica.aml", &table(b"DSDT", AML));
+    let (_, stderr, ok) = run_with(&["--acpica"], &file, "exit\n");
+    assert!(!ok);
+    assert!(stderr.contains("not compiled in"), "{stderr}");
+}
+
+#[test]
 fn conflicting_interpreter_flags_are_an_error() {
     let file = fixture("conflict.aml", &table(b"DSDT", AML));
     let (stdout, stderr, ok) = run_with(&["--acpi", "--uacpi"], &file, "dump\n");
     assert!(!ok);
-    assert!(stderr.contains("cannot be used together"), "{stderr}");
+    assert!(stderr.contains("may be given"), "{stderr}");
     assert!(stderr.contains("usage:"), "{stderr}");
     assert!(stdout.is_empty(), "{stdout}");
 }

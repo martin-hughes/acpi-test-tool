@@ -1,15 +1,14 @@
 //! [`AmlBackend`] implemented on [uACPI](https://github.com/uACPI/uACPI).
 //!
 //! uACPI is a C library with global state, so only one [`UacpiBackend`] can exist in a process
-//! at a time. `firmware` builds the tables uACPI is started from, and `host` provides the
+//! at a time. [`crate::firmware`] builds the tables uACPI is started from, and `host` provides the
 //! functions uACPI calls back into.
 
-mod firmware;
 mod host;
 
 use super::{AmlBackend, Entry, Value};
+use crate::firmware::Firmware;
 use crate::tables::Table;
-use firmware::Firmware;
 use std::ffi::{CStr, CString, c_void};
 use std::ptr::{null, null_mut};
 use uacpi_sys as sys;

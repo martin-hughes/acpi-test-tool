@@ -90,6 +90,9 @@ pub fn backends() -> Vec<&'static str> {
     if cfg!(feature = "uacpi") {
         flags.push("--uacpi");
     }
+    if cfg!(feature = "acpica") {
+        flags.push("--acpica");
+    }
     flags
 }
 
