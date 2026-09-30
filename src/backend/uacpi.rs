@@ -7,10 +7,11 @@
 mod host;
 
 use super::{AmlBackend, Entry, Value};
+use crate::arguments::{Argument, wrong_argument_count};
 use crate::firmware::Firmware;
 use crate::tables::Table;
 use std::ffi::{CStr, CString, c_void};
-use std::ptr::{null, null_mut};
+use std::ptr::null_mut;
 use uacpi_sys as sys;
 
 pub struct UacpiBackend {
@@ -120,7 +121,7 @@ impl AmlBackend for UacpiBackend {
         entries
     }
 
-    fn execute(&mut self, path: &str) -> Result<Value, String> {
+    fn execute(&mut self, path: &str, arguments: &[Argument]) -> Result<Value, String> {
         if !self.loaded {
             return Err("no namespace is loaded".into());
         }
@@ -134,12 +135,33 @@ impl AmlBackend for UacpiBackend {
             if status != sys::uacpi_status_UACPI_STATUS_OK {
                 return Err(status_text(status));
             }
-            if method_arguments(node) != Some(0) {
-                return Err("the method takes arguments, which are not supported yet".into());
+            match method_arguments(node) {
+                Some(expected) if usize::from(expected) != arguments.len() => {
+                    return Err(wrong_argument_count(expected.into(), arguments.len()));
+                }
+                Some(_) => {}
+                None => return Err("not a method".into()),
             }
 
+            // uACPI copies what it is given, so these are released once the call is over.
+            let mut objects = Vec::with_capacity(arguments.len());
+            for argument in arguments {
+                match create_argument(argument) {
+                    Some(object) => objects.push(object),
+                    None => {
+                        release(&objects);
+                        return Err("could not create the method's arguments".into());
+                    }
+                }
+            }
+            let list = sys::uacpi_object_array {
+                objects: objects.as_mut_ptr(),
+                count: objects.len(),
+            };
+
             let mut result: *mut sys::uacpi_object = null_mut();
-            let status = sys::uacpi_eval(null_mut(), path.as_ptr(), null(), &mut result);
+            let status = sys::uacpi_eval(null_mut(), path.as_ptr(), &list, &mut result);
+            release(&objects);
             if status != sys::uacpi_status_UACPI_STATUS_OK {
                 return Err(status_text(status));
             }
@@ -157,6 +179,31 @@ impl AmlBackend for UacpiBackend {
             sys::uacpi_object_unref(result);
             Ok(value)
         }
+    }
+}
+
+/// Make a uACPI object holding `argument`, or return `None` if that failed.
+///
+/// # Safety
+/// uACPI must be initialised.
+unsafe fn create_argument(argument: &Argument) -> Option<*mut sys::uacpi_object> {
+    let object = match argument {
+        Argument::Integer(value) => unsafe { sys::uacpi_object_create_integer(*value) },
+        Argument::String(text) => {
+            let text = CString::new(text.as_str()).ok()?;
+            unsafe { sys::uacpi_object_create_cstring(text.as_ptr()) }
+        }
+    };
+    (!object.is_null()).then_some(object)
+}
+
+/// Drop this code's references to objects made by [`create_argument`].
+///
+/// # Safety
+/// Every pointer must be a live object from `create_argument`, not released already.
+unsafe fn release(objects: &[*mut sys::uacpi_object]) {
+    for &object in objects {
+        unsafe { sys::uacpi_object_unref(object) };
     }
 }
 

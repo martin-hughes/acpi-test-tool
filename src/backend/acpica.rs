@@ -7,6 +7,7 @@
 mod host;
 
 use super::{AmlBackend, Entry, Value};
+use crate::arguments::{Argument, wrong_argument_count};
 use crate::firmware::Firmware;
 use crate::tables::Table;
 use acpica_sys as sys;
@@ -176,7 +177,7 @@ impl AmlBackend for AcpicaBackend {
         entries
     }
 
-    fn execute(&mut self, path: &str) -> Result<Value, String> {
+    fn execute(&mut self, path: &str, arguments: &[Argument]) -> Result<Value, String> {
         if !self.loaded {
             return Err("no namespace is loaded".into());
         }
@@ -190,9 +191,45 @@ impl AmlBackend for AcpicaBackend {
             if !succeeded(status) {
                 return Err(status_text(status));
             }
-            if method_arguments(handle).is_some_and(|arguments| arguments > 0) {
-                return Err("the method takes arguments, which are not supported yet".into());
+            match method_arguments(handle) {
+                Some(expected) if usize::from(expected) != arguments.len() => {
+                    return Err(wrong_argument_count(expected.into(), arguments.len()));
+                }
+                Some(_) => {}
+                None => return Err("not a method".into()),
             }
+
+            // ACPICA reads the arguments (and the text of any string) during the call, so they
+            // only have to stay alive until it returns. `texts` owns the strings' characters.
+            let mut texts: Vec<CString> = Vec::new();
+            let mut objects: Vec<sys::ACPI_OBJECT> = Vec::new();
+            for argument in arguments {
+                let mut object: sys::ACPI_OBJECT = std::mem::zeroed();
+                match argument {
+                    Argument::Integer(value) => {
+                        object.Integer.Type = TYPE_INTEGER;
+                        object.Integer.Value = *value;
+                    }
+                    Argument::String(text) => {
+                        let characters = CString::new(text.as_str())
+                            .map_err(|_| "strings cannot contain NUL".to_string())?;
+                        object.String.Type = TYPE_STRING;
+                        object.String.Length = text.len() as u32;
+                        object.String.Pointer = characters.as_ptr() as *mut c_char;
+                        texts.push(characters);
+                    }
+                }
+                objects.push(object);
+            }
+            let mut list = sys::ACPI_OBJECT_LIST {
+                Count: objects.len() as u32,
+                Pointer: objects.as_mut_ptr(),
+            };
+            let list_pointer = if objects.is_empty() {
+                null_mut()
+            } else {
+                &mut list as *mut sys::ACPI_OBJECT_LIST
+            };
 
             let mut result = sys::ACPI_BUFFER {
                 Length: ALLOCATE_BUFFER,
@@ -201,7 +238,7 @@ impl AmlBackend for AcpicaBackend {
             let status = sys::AcpiEvaluateObject(
                 null_mut(),
                 path.as_ptr() as sys::ACPI_STRING,
-                null_mut(),
+                list_pointer,
                 &mut result,
             );
             // A method that finishes without returning anything is reported as an error, or

@@ -15,7 +15,9 @@ A tool that:
 * Allows the user to enter commands:
   * `dump` will dump a tree view of the namespace
   * `find [name]` will search the namespace for `[name]`, and dump the object found, and its type.
-  * `execute [name]` runs a method that takes no arguments and displays its result (added after the initial MVP).
+  * `execute [name] [arguments]` runs a method and displays its result (added after the initial MVP). Arguments are
+    space-separated integers (decimal, or hexadecimal with a leading `0x`) and strings (in double quotes, with Rust's
+    escapes). Anything else is invalid. Each backend checks the argument count against the method's.
   * `exit` to quit.
 
 ### The TUI
@@ -84,6 +86,6 @@ The only restrictions on dependencies are:
 
 > This is not needed now, but should be considered when thinking about architecture or other decisions
  
-* Allow `execute` to pass arguments to methods
+* Allow `execute` to pass other kinds of argument (buffers, packages, references)
 * Some sort of "set" command allowing values in the namespace to be altered before running a method.
 * Other commands to manipulate the namespace

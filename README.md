@@ -57,11 +57,14 @@ Here `methods.aml` is `tests/aml/methods.asl` compiled with `iasl`.
 > cargo run -- methods.aml
 acpi> help
 Commands:
-  dump, d              print a tree of the namespace
-  find, f <name>       find objects by absolute path (\_SB_.PCI0) or by name (PCI0)
-  execute, e <name>    run a method (with no arguments) and show its result
-  help, h              show this text
-  exit, quit, q        quit
+  dump, d                        print a tree of the namespace
+  find, f <name>                 find objects by absolute path (\_SB_.PCI0) or by name (PCI0)
+  execute, e <name> [arguments]  run a method and show its result
+  help, h                        show this text
+  exit, quit, q                  quit
+
+Arguments to execute are separated by spaces. Each is an integer (decimal, or hexadecimal
+with a leading 0x) or a string in double quotes, which can use Rust's escapes (\n, \", ...).
 acpi> find MAIN
 \MAIN [Method] 0 args
 acpi> execute RET3
@@ -81,6 +84,30 @@ acpi> dump
 ├── _SI [Scope]
 └── _TZ [Scope]
 acpi> q
+```
+
+### Method arguments
+
+`execute` passes any arguments that follow the method name to the method. They are separated by spaces, and can be:
+
+* integers: decimal (`42`) or, with a leading `0x`, hexadecimal (`0x2A`). They are unsigned and at most 64 bits.
+* strings, in double quotes (`"two words"`), using Rust's escapes (`"say \"hi\"\n"`, `"\x41"`, `"\u{42}"`). AML strings
+  are ASCII and can't contain NUL, so neither can these.
+
+Anything else is an error and nothing is run: hexadecimal without `0x` (`ff`), unquoted text, negative numbers. The
+number of arguments has to match what the method takes.
+
+This example is `tests/aml/returns.asl`, which has methods that add and join their arguments (`ADD2` and `CAT2`):
+
+```
+acpi> execute ADD2 40 2
+\ADD2 returned [Integer] 0x2a (42)
+acpi> execute CAT2 "foo " "bar"
+\CAT2 returned [String] "foo bar"
+acpi> execute ADD2 1
+error executing \ADD2: the method takes 2 arguments, but 1 was given
+acpi> execute ADD2 1 ff
+argument 2: "ff" is not a valid argument (integers are decimal, or hexadecimal with a leading 0x, and strings are in double quotes)
 ```
 
 ## AI/LLM usage

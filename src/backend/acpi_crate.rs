@@ -1,9 +1,10 @@
 //! [`AmlBackend`] implemented on the `acpi` crate's AML interpreter.
 
 use super::{AmlBackend, Entry, Value};
+use crate::arguments::{Argument, wrong_argument_count};
 use crate::tables::Table;
 use acpi::aml::{
-    AmlError, Interpreter,
+    Interpreter,
     namespace::{AmlName, Namespace, NamespaceLevelKind},
     object::{FieldUnitKind, Object},
 };
@@ -42,17 +43,43 @@ impl AmlBackend for AcpiCrateBackend {
         entries
     }
 
-    fn execute(&mut self, path: &str) -> Result<Value, String> {
+    fn execute(&mut self, path: &str, arguments: &[Argument]) -> Result<Value, String> {
         let name = AmlName::from_str(path).map_err(|e| format!("invalid path: {e:?}"))?;
+
+        // The interpreter would reject a wrong count too, but wouldn't say what was expected.
+        let expected = {
+            let object = self
+                .interpreter
+                .namespace
+                .lock()
+                .get(name.clone())
+                .map_err(|e| format!("{e:?}"))?;
+            match &*object {
+                Object::Method { flags, .. } | Object::NativeMethod { flags, .. } => {
+                    Some(flags.arg_count())
+                }
+                _ => None,
+            }
+        };
+        match expected {
+            Some(expected) if expected != arguments.len() => {
+                return Err(wrong_argument_count(expected, arguments.len()));
+            }
+            Some(_) => {}
+            None => return Err("not a method".into()),
+        }
+
+        let arguments = arguments
+            .iter()
+            .map(|argument| match argument {
+                Argument::Integer(value) => Object::Integer(*value).wrap(),
+                Argument::String(text) => Object::String(text.clone()).wrap(),
+            })
+            .collect();
         let result = self
             .interpreter
-            .evaluate(name, vec![])
-            .map_err(|e| match e {
-                AmlError::MethodArgCountIncorrect => {
-                    "the method takes arguments, which are not supported yet".to_string()
-                }
-                other => format!("{other:?}"),
-            })?;
+            .evaluate(name, arguments)
+            .map_err(|e| format!("{e:?}"))?;
         Ok(Value {
             type_name: format!("{:?}", result.typ()),
             summary: describe(&result),

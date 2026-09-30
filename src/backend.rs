@@ -8,6 +8,7 @@ pub mod acpica;
 #[cfg(feature = "uacpi")]
 pub mod uacpi;
 
+use crate::arguments::Argument;
 use crate::tables::Table;
 
 /// One named object in the namespace.
@@ -41,6 +42,8 @@ pub trait AmlBackend {
     /// Every named object currently in the namespace, in no particular order.
     fn entries(&mut self) -> Vec<Entry>;
 
-    /// Execute the method at the absolute `path`, with no arguments, and return its result.
-    fn execute(&mut self, path: &str) -> Result<Value, String>;
+    /// Execute the method at the absolute `path`, with the given arguments, and return its
+    /// result. A method called with the wrong number of arguments is an error (see
+    /// [`crate::arguments::wrong_argument_count`] for its message).
+    fn execute(&mut self, path: &str, arguments: &[Argument]) -> Result<Value, String>;
 }

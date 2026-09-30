@@ -1,4 +1,4 @@
-// Methods that return each kind of value, and one that takes an argument.
+// Methods that return each kind of value, and some that take arguments.
 DefinitionBlock ("", "DSDT", 2, "ACPI", "RETURNS", 0x00000001) {
     Method (STR1, 0, NotSerialized) {
         Return ("hello")
@@ -14,5 +14,13 @@ DefinitionBlock ("", "DSDT", 2, "ACPI", "RETURNS", 0x00000001) {
 
     Method (TAK1, 1, NotSerialized) {
         Return (Arg0)
+    }
+
+    Method (ADD2, 2, NotSerialized) {
+        Return (Arg0 + Arg1)
+    }
+
+    Method (CAT2, 2, NotSerialized) {
+        Return (Concatenate (Arg0, Arg1))
     }
 }

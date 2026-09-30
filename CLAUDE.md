@@ -8,9 +8,9 @@ See `INTENT.md` for the plan, MVP definition and design decisions.
 ## Status
 
 The MVP is implemented: `acpi-test [--acpi | --uacpi | --acpica] <file>` loads a table file and offers a REPL with
-`dump`, `find <name>`, `execute <name>` (methods with no arguments only), `help` and `exit` (each with a short form).
-Three AML interpreters are supported: the `acpi` crate (default), uACPI and ACPICA. Future work (method arguments,
-`set`) is listed in `INTENT.md`.
+`dump`, `find <name>`, `execute <name> [arguments]` (integer and string arguments), `help` and `exit` (each with a
+short form). Three AML interpreters are supported: the `acpi` crate (default), uACPI and ACPICA. Future work (other
+argument types, `set`) is listed in `INTENT.md`.
 
 ## Tech Stack
 
@@ -27,6 +27,8 @@ Three AML interpreters are supported: the `acpi` crate (default), uACPI and ACPI
 
 * `src/main.rs` - file loading, choosing the backend, starts the REPL.
 * `src/cli.rs` - command-line parsing (`--acpi`, `--uacpi`, `--acpica`) and the prompt for each.
+* `src/arguments.rs` - the `Argument` type (integer or string), the parser for the arguments typed after a method
+  name, and the shared "wrong number of arguments" message. Interpreter-independent.
 * `src/tables.rs` - splits a binary image into tables (36-byte SDT headers). Interpreter-independent.
 * `src/backend.rs` - the `AmlBackend` trait and the backend-neutral `Entry`/`Value` types.
 * `src/backend/acpi_crate.rs` - `AcpiCrateBackend`, built on the `acpi` crate's interpreter.
