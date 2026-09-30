@@ -5,7 +5,16 @@ edition = "2024"
 publish = false
 license = "MIT"
 
+[workspace]
+members = ["uacpi-sys"]
+
+[features]
+default = ["uacpi"]
+# Support for the uACPI interpreter (`--uacpi`). Needs a C compiler and libclang to build.
+uacpi = ["dep:uacpi-sys"]
+
 [dependencies]
+uacpi-sys = { path = "uacpi-sys", optional = true }
 acpi = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
 aml-test-tools = { git = "https://github.com/rust-osdev/acpi", branch = "main" }
 rustyline = "18"

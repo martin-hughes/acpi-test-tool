@@ -83,9 +83,26 @@ pub fn compile_asl(name: &str) -> Vec<u8> {
     std::fs::read(dir.path().join(format!("{name}.aml"))).unwrap()
 }
 
-/// Run the tool on `file`, feeding `input` to the REPL. Returns (stdout, stderr, success).
+/// The command-line flags that select each interpreter this build supports. Tests that should
+/// hold for every interpreter loop over these.
+pub fn backends() -> Vec<&'static str> {
+    let mut flags = vec!["--acpi"];
+    if cfg!(feature = "uacpi") {
+        flags.push("--uacpi");
+    }
+    flags
+}
+
+/// Run the tool on `file` with the default interpreter, feeding `input` to the REPL. Returns
+/// (stdout, stderr, success).
 pub fn run(file: &Path, input: &str) -> (String, String, bool) {
+    run_with(&[], file, input)
+}
+
+/// Like [`run`], with extra command-line arguments (such as an interpreter flag) before the file.
+pub fn run_with(args: &[&str], file: &Path, input: &str) -> (String, String, bool) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_acpi-test"))
+        .args(args)
         .arg(file)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

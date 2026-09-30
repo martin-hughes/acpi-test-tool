@@ -1,0 +1,3 @@
+[submodule "ext-libs/uACPI"]
+	path = ext-libs/uACPI
+	url = git@github.com:uACPI/uACPI.git

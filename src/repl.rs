@@ -93,10 +93,10 @@ fn execute_method(backend: &mut dyn AmlBackend, name: &str) -> String {
     }
 }
 
-pub fn run(backend: &mut dyn AmlBackend) -> Result<(), ReadlineError> {
+pub fn run(backend: &mut dyn AmlBackend, prompt: &str) -> Result<(), ReadlineError> {
     let mut editor = DefaultEditor::new()?;
     loop {
-        match editor.readline("acpi> ") {
+        match editor.readline(prompt) {
             Ok(line) => {
                 let _ = editor.add_history_entry(line.as_str());
                 match execute(backend, parse(&line)) {

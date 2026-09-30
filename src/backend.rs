@@ -2,6 +2,8 @@
 //! implement [`AmlBackend`]; the rest of the tool only sees backend-neutral [`Entry`] values.
 
 pub mod acpi_crate;
+#[cfg(feature = "uacpi")]
+pub mod uacpi;
 
 use crate::tables::Table;
 
@@ -26,8 +28,12 @@ pub struct Value {
 }
 
 pub trait AmlBackend {
-    /// Load one AML table (DSDT/SSDT) into the namespace.
-    fn load_table(&mut self, table: &Table) -> Result<(), String>;
+    /// Load AML tables (DSDT/SSDT) into the namespace. All tables are given at once because some
+    /// interpreters (uACPI) need the complete set before they can build a namespace.
+    ///
+    /// Returns a message for each problem found. Loading continues past errors where the
+    /// interpreter allows it, so the namespace may still be partly populated.
+    fn load_tables(&mut self, tables: &[Table]) -> Vec<String>;
 
     /// Every named object currently in the namespace, in no particular order.
     fn entries(&mut self) -> Vec<Entry>;

@@ -23,10 +23,16 @@ impl AcpiCrateBackend {
 }
 
 impl AmlBackend for AcpiCrateBackend {
-    fn load_table(&mut self, table: &Table) -> Result<(), String> {
-        self.interpreter
-            .load_table(table.body())
-            .map_err(|e| format!("{e:?}"))
+    fn load_tables(&mut self, tables: &[Table]) -> Vec<String> {
+        tables
+            .iter()
+            .filter_map(|table| {
+                self.interpreter
+                    .load_table(table.body())
+                    .err()
+                    .map(|e| format!("error loading {}: {e:?}", table.signature))
+            })
+            .collect()
     }
 
     fn entries(&mut self) -> Vec<Entry> {

@@ -1,0 +1,12 @@
+[package]
+name = "uacpi-sys"
+version = "0.0.1"
+edition = "2024"
+publish = false
+license = "MIT"
+description = "Raw FFI bindings to uACPI, built from the ext-libs/uACPI submodule"
+links = "uacpi"
+
+[build-dependencies]
+bindgen = "0.72"
+cc = "1"
